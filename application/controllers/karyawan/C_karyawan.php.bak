@@ -1,0 +1,582 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+class C_karyawan extends CI_Controller {
+
+	 
+	function __construct() {
+		parent::__construct();
+		$this->load->database();
+		$this->load->model("m_karyawan");
+		$this->load->helper("url");
+		$this->load->helper("date");
+		$this->load->library('email');
+		$this->load->library('session');  
+  
+		$karyawan=$this->session->userdata('status');
+		if($karyawan==''||$karyawan!='karyawan')
+		{
+			redirect('auth');
+		}
+		 
+	} 
+
+	function index()
+	{
+	
+		$id_user= $_SESSION['id_user'] ;
+        $query = $this->db->query("SELECT saldo FROM tbl_user WHERE status='karyawan' AND id_user=".$id_user." ");
+		$row = $query->row();
+		$saldo = $row->saldo;
+
+		
+		if ($saldo < '10000') 
+		{
+			
+			$data['saldo'] = $this->m_karyawan->tampil_saldo();
+			$this->load->view('karyawan/nav',$data);
+			$this->load->view('karyawan/popup');
+			$this->load->view('karyawan/footer');
+		}
+		else
+		{	
+			         
+				$data['saldo'] = $this->m_karyawan->tampil_saldo();
+				$this->load->view('karyawan/nav',$data);
+				$this->load->view('karyawan/index',$data);
+				$this->load->view('karyawan/footer'); 	
+		}
+	
+	}
+//--------------------------------------------------------------------------------------------
+//ganti password
+//--------------------------------------------------------------------------------------------
+	public function edit_password()
+	{
+		
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$data['user']=$this->m_karyawan->edit_password();
+		$this->load->view('karyawan/edit_password',$data);
+		$this->load->view('karyawan/footer');
+	}
+
+	
+	public function update_user()
+	{
+		$id = $this->input->post('id_user');
+        $password = $this->input->post('password');
+        $data = array( 'password' =>md5($password));
+        $where = array('id_user' => $id);
+        $this->m_karyawan->update_data($where,$data,'tbl_user');
+        redirect('karyawan/c_karyawan/index');
+    }
+//--------------------------------------------------------------------------------------------
+// Pilih Menu Makan siang	
+//--------------------------------------------------------------------------------------------
+	 function menu_utama_siang()
+	{
+			$data['order'] = $this->m_karyawan->get_order_siang()->result();
+			if($data['order']==null )
+			{
+
+				$data['saldo'] = $this->m_karyawan->tampil_saldo();
+				$this->load->view('karyawan/nav',$data);
+				$data['makanan'] = $this->m_karyawan->tampil_makanan();
+				$data['makanan']=$this->m_karyawan->caridata();
+			
+				if($data['makanan']==null) 
+					{
+	  		 			echo "<script>alert('Data yang anda cari tidak ada');</script>";
+	    				$this->load->view('karyawan/utama_siang',$data);
+	    				$this->load->view('karyawan/footer');
+			    	}	
+			    else 
+			    	{
+			        	$this->load->view('karyawan/utama_siang',$data);
+			        	$this->load->view('karyawan/footer'); 
+			     	}
+
+			}
+			else
+			{
+				$data['saldo'] = $this->m_karyawan->tampil_saldo();
+				$this->load->view('karyawan/nav',$data);
+				$this->load->view('karyawan/popup_order');
+				$this->load->view('karyawan/footer');
+
+			}
+		
+	}
+
+
+	 function add_order_utama_siang_aksi()
+    {	
+    	$id_user= $_SESSION['id_user'] ;
+        $query = $this->db->query("SELECT saldo FROM tbl_user WHERE status='karyawan' AND id_user=".$id_user." ");
+		$row = $query->row();
+		$saldo = $row->saldo;
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+       	$username = $this->session->userdata('id_user');
+        $id = $this->input->post('id_makanan');
+        $keterangan = $this->input->post('note');
+        $harga = $this->input->post('harga');
+    
+
+ 		if($saldo >=$harga)
+ 		{
+ 			$data = array(
+	     	 'id_user' => $username,
+	        'id_makanan' => $id,
+	      	'note' => $keterangan,
+	      	'jenis_order'=>$jenis_order,
+	      	'jam_makan'=>$jam_makan
+
+
+	      	);
+     		$this->m_karyawan->add_pesanan_utama_siang($data,'tbl_order');
+     		redirect('karyawan/C_karyawan/pilih_alternatif_satu_siang');
+
+ 		}
+ 		else{
+ 			echo "<script>alert('saldo anda tidak cukup untuk membeli makanan ini');</script>";
+ 			$data['saldo'] = $this->m_karyawan->tampil_saldo();
+			$this->load->view('karyawan/nav',$data);
+ 			$data['makanan'] = $this->m_karyawan->tampil_makanan();
+ 			$this->load->view('karyawan/utama_siang',$data);
+			$this->load->view('karyawan/footer');
+
+ 		}
+
+     	
+     	
+ 	}
+
+// --------------------------------------------------------------------------------------------
+// order menu alternatif satu siang
+// --------------------------------------------------------------------------------------------
+ 	 function add_alternatif_satu_siang()
+	{
+		//$saldo['saldo'] = $this->session->userdata('saldo');
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+
+		 $data['makanan']=$this->m_karyawan->caridata();
+			
+			if($data['makanan']==null) {
+	  		 echo "<script>alert('data yang anda cari tidak ada');;history.go(-1);</script>";
+	    		$this->load->view('karyawan/alternatif_satu_siang',$data);
+	    		$this->load->view('karyawan/footer');
+			     }
+			     else 
+			     {
+			        $this->load->view('karyawan/alternatif_satu_siang',$data);
+			        $this->load->view('karyawan/footer'); 
+			      }
+	}
+
+	 function add_alternatif_satu_siang_aksi()
+    {
+    	$id_user= $_SESSION['id_user'] ;
+        $query = $this->db->query("SELECT saldo FROM tbl_user WHERE status='karyawan' AND id_user=".$id_user." ");
+		$row = $query->row();
+		$saldo = $row->saldo;
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+		$username = $this->session->userdata('id_user');
+        $id = $this->input->post('id_makanan');
+        $keterangan = $this->input->post('note');
+   		$harga = $this->input->post('harga');
+
+		if($saldo  >= $harga)
+ 		{
+ 			$data = array(
+	     	 'id_user' => $username,
+	        'id_makanan' => $id,
+	      	'note' => $keterangan);
+    	 	$this->m_karyawan->add_pesanan_alternatif_satu_siang($data,'tbl_order');
+	     	redirect('karyawan/C_karyawan/pilih_alternatif_dua_siang');
+
+ 		}
+ 		else{
+ 			echo "<script>alert('saldo anda tidak cukup untuk membeli makanan ini');</script>";
+ 			$data['saldo'] = $this->m_karyawan->tampil_saldo();
+			$this->load->view('karyawan/nav',$data);
+ 			$data['makanan'] = $this->m_karyawan->tampil_makanan();
+ 			$this->load->view('karyawan/alternatif_satu_siang',$data);
+			$this->load->view('karyawan/footer');
+
+ 		}
+
+    }
+
+
+
+// --------------------------------------------------------------------------------------------
+// order menu alternatif dua siang
+// --------------------------------------------------------------------------------------------
+ 	 function add_alternatif_dua_siang()
+	{
+		// $saldo['saldo'] = $this->session->userdata('saldo');
+		// $this->load->view('karyawan/nav',$saldo);
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+
+		 $data['makanan']=$this->m_karyawan->caridata();
+			
+			if($data['makanan']==null) {
+	  		 echo "<script>alert('data yang anda cari tidak ada');</script>";
+	    		$this->load->view('karyawan/alternatif_dua_siang',$data); 
+	    		$this->load->view('karyawan/footer');
+			     }
+			     else 
+			     {
+			        $this->load->view('karyawan/alternatif_dua_siang',$data);
+			        $this->load->view('karyawan/footer'); 
+			      }
+	}
+
+	 function add_alternatif_dua_siang_aksi()
+    {
+		$id_user= $_SESSION['id_user'] ;
+        $query = $this->db->query("SELECT saldo FROM tbl_user WHERE status='karyawan' AND id_user=".$id_user." ");
+		$row = $query->row();
+		$saldo = $row->saldo;
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+       	$username = $this->session->userdata('id_user');
+        $id = $this->input->post('id_makanan');
+        $keterangan = $this->input->post('note');
+        $harga = $this->input->post('harga');
+
+ 		if($saldo >= $harga)
+ 		{
+ 			$data = array(
+	     	 'id_user' => $username,
+	        'id_makanan' => $id,
+	      	'note' => $keterangan);
+     		$this->m_karyawan->add_pesanan_alternatif_dua_siang($data,'tbl_order');
+     		redirect('karyawan/C_karyawan/pesanan');
+
+ 		}
+ 		else{
+ 			echo "<script>alert('saldo anda tidak cukup untuk membeli makanan ini');</script>";
+ 			$data['saldo'] = $this->m_karyawan->tampil_saldo();
+			$this->load->view('karyawan/nav',$data);
+ 			$data['makanan'] = $this->m_karyawan->tampil_makanan();
+ 			$this->load->view('karyawan/alternatif_dua_siang',$data);
+			$this->load->view('karyawan/footer');
+
+ 		}
+
+ 	}
+
+// --------------------------------------------------------------------------------------------
+// pilih alternatif satu siang
+// --------------------------------------------------------------------------------------------
+
+ 	public function pilih_alternatif_satu_siang()
+	{
+		
+		
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$this->load->view('karyawan/pilih_alternatif_satu_siang');
+		$this->load->view('karyawan/footer');
+	}
+
+// --------------------------------------------------------------------------------------------
+// pilih alternatif dua siang
+// --------------------------------------------------------------------------------------------
+
+ 	public function pilih_alternatif_dua_siang()
+	{
+		
+		// $saldo['saldo'] = $this->session->userdata('saldo');
+		// $this->load->view('karyawan/nav',$saldo);
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$this->load->view('karyawan/pilih_alternatif_dua_siang');
+		$this->load->view('karyawan/footer');
+	}
+
+
+
+//--------------------------------------------------------------------------------------------
+// Pilih Menu Makan malam	
+//--------------------------------------------------------------------------------------------
+	 function menu_utama_malam()
+	{
+			$data['order'] = $this->m_karyawan->get_order_malam()->result();
+			if($data['order']==null )
+			{
+
+				$data['saldo'] = $this->m_karyawan->tampil_saldo();
+				$this->load->view('karyawan/nav',$data);
+				$data['makanan'] = $this->m_karyawan->tampil_makanan();
+				$data['makanan']=$this->m_karyawan->caridata();
+			
+				if($data['makanan']==null) 
+					{
+	  		 			echo "<script>alert('data yang anda cari tidak ada');</script>";
+	    				$this->load->view('karyawan/utama_malam',$data);
+	    				$this->load->view('karyawan/footer');
+			    	}	
+			    else 
+			    	{
+			        	$this->load->view('karyawan/utama_malam',$data);
+			        	$this->load->view('karyawan/footer'); 
+			     	}
+
+			}
+			else
+			{
+				$data['saldo'] = $this->m_karyawan->tampil_saldo();
+				$this->load->view('karyawan/nav',$data);
+				$this->load->view('karyawan/popup_order');
+				$this->load->view('karyawan/footer');
+
+			}
+		
+	}
+
+
+	 function add_order_utama_malam_aksi()
+    {
+    	$id_user= $_SESSION['id_user'] ;
+        $query = $this->db->query("SELECT saldo FROM tbl_user WHERE status='karyawan' AND id_user=".$id_user." ");
+		$row = $query->row();
+		$saldo = $row->saldo;
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+       	$username = $this->session->userdata('id_user');
+        $id = $this->input->post('id_makanan');
+        $keterangan = $this->input->post('note');
+        $harga = $this->input->post('harga');
+
+ 		if($saldo  >= $harga)
+ 		{
+ 			$data = array(
+	     	 'id_user' => $username,
+	        'id_makanan' => $id,
+	      	'note' => $keterangan);
+	     	$this->m_karyawan->add_pesanan_utama_malam($data,'tbl_order');
+	     	redirect('karyawan/C_karyawan/pilih_alternatif_satu_malam');
+
+ 		}
+ 		else{
+ 			echo "<script>alert('saldo anda tidak cukup untuk membeli makanan ini');</script>";
+ 			$data['saldo'] = $this->m_karyawan->tampil_saldo();
+			$this->load->view('karyawan/nav',$data);
+ 			$data['makanan'] = $this->m_karyawan->tampil_makanan();
+ 			$this->load->view('karyawan/utama_malam',$data);
+			$this->load->view('karyawan/footer');
+
+ 		}
+
+    	
+     	
+ 	}
+
+// --------------------------------------------------------------------------------------------
+// order menu alternatif satu malam
+// --------------------------------------------------------------------------------------------
+ 	 function add_alternatif_satu_malam()
+	{
+		//$saldo['saldo'] = $this->session->userdata('saldo');
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+
+		 $data['makanan']=$this->m_karyawan->caridata();
+			
+			if($data['makanan']==null) {
+	  		 echo "<script>alert('data yang anda cari tidak ada');</script>";
+	    		$this->load->view('karyawan/alternatif_satu_malam',$data);
+	    		$this->load->view('karyawan/footer');
+			     }
+			     else 
+			     {
+			        $this->load->view('karyawan/alternatif_satu_malam',$data);
+			        $this->load->view('karyawan/footer'); 
+			      }
+	}
+
+	 function add_alternatif_satu_malam_aksi()
+    {
+    	$id_user= $_SESSION['id_user'] ;
+        $query = $this->db->query("SELECT saldo FROM tbl_user WHERE status='karyawan' AND id_user=".$id_user." ");
+		$row = $query->row();
+		$saldo = $row->saldo;
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+       	$username = $this->session->userdata('id_user');
+        $id = $this->input->post('id_makanan');
+        $keterangan = $this->input->post('note');
+        $harga = $this->input->post('harga');
+
+ 		if($saldo  >= $harga)
+ 		{
+ 			$data = array(
+	     	 'id_user' => $username,
+	        'id_makanan' => $id,
+	      	'note' => $keterangan);
+	     	$this->m_karyawan->add_pesanan_alternatif_satu_malam($data,'tbl_order');
+     		redirect('karyawan/C_karyawan/pilih_alternatif_dua_malam');
+
+ 		}
+ 		else{
+ 			echo "<script>alert('saldo anda tidak cukup untuk membeli makanan ini');</script>";
+ 			$data['saldo'] = $this->m_karyawan->tampil_saldo();
+			$this->load->view('karyawan/nav',$data);
+ 			$data['makanan'] = $this->m_karyawan->tampil_makanan();
+ 			$this->load->view('karyawan/alternatif_satu_malam',$data);
+			$this->load->view('karyawan/footer');
+
+ 		}
+
+    }
+
+
+
+// --------------------------------------------------------------------------------------------
+// order menu alternatif dua malam
+// --------------------------------------------------------------------------------------------
+ 	 function add_alternatif_dua_malam()
+	{
+		// $saldo['saldo'] = $this->session->userdata('saldo');
+		// $this->load->view('karyawan/nav',$saldo);
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+
+		 $data['makanan']=$this->m_karyawan->caridata();
+			
+			if($data['makanan']==null) {
+	  		 echo "<script>alert('data yang anda cari tidak ada');</script>";
+	    		$this->load->view('karyawan/alternatif_dua_malam',$data); 
+	    		$this->load->view('karyawan/footer');
+			     }
+			     else 
+			     {
+			        $this->load->view('karyawan/alternatif_dua_malam',$data);
+			        $this->load->view('karyawan/footer'); 
+			      }
+	}
+
+	 function add_alternatif_dua_malam_aksi()
+    {	
+    	$id_user= $_SESSION['id_user'] ;
+        $query = $this->db->query("SELECT saldo FROM tbl_user WHERE status='karyawan' AND id_user=".$id_user." ");
+		$row = $query->row();
+		$saldo = $row->saldo;
+		$data['makanan'] = $this->m_karyawan->tampil_makanan();
+
+       	$username = $this->session->userdata('id_user');
+        $id = $this->input->post('id_makanan');
+        $keterangan = $this->input->post('note');
+        $harga = $this->input->post('harga');
+
+ 		if($saldo  >= $harga)
+ 		{
+ 			$data = array(
+	     	 'id_user' => $username,
+	        'id_makanan' => $id,
+	      	'note' => $keterangan);
+	     	$this->m_karyawan->add_pesanan_alternatif_dua_malam($data,'tbl_order');
+     		redirect('karyawan/C_karyawan/pesanan');
+
+ 		}
+ 		else{
+ 			echo "<script>alert('saldo anda tidak cukup untuk membeli makanan ini');</script>";
+ 			$data['saldo'] = $this->m_karyawan->tampil_saldo();
+			$this->load->view('karyawan/nav',$data);
+ 			$data['makanan'] = $this->m_karyawan->tampil_makanan();
+ 			$this->load->view('karyawan/alternatif_dua_malam',$data);
+			$this->load->view('karyawan/footer');
+
+ 		} 
+ 	}
+
+// --------------------------------------------------------------------------------------------
+// pilih alternatif satu malam
+// --------------------------------------------------------------------------------------------
+
+ 	public function pilih_alternatif_satu_malam()
+	{
+		
+		// $saldo['saldo'] = $this->session->userdata('saldo');
+		// $this->load->view('karyawan/nav',$saldo);
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$this->load->view('karyawan/pilih_alternatif_satu_malam');
+		$this->load->view('karyawan/footer');
+	}
+
+// --------------------------------------------------------------------------------------------
+// pilih alternatif dua malam
+// --------------------------------------------------------------------------------------------
+
+ 	public function pilih_alternatif_dua_malam()
+	{
+		
+		// $saldo['saldo'] = $this->session->userdata('saldo');
+		// $this->load->view('karyawan/nav',$saldo);
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$this->load->view('karyawan/pilih_alternatif_dua_malam');
+		$this->load->view('karyawan/footer');
+	}
+
+
+
+
+ // --------------------------------------------------------------------------------------------
+// transaksi
+// --------------------------------------------------------------------------------------------
+
+ 	public function transaksi()
+	{
+		
+		// $saldo['saldo'] = $this->session->userdata('saldo');
+		// $this->load->view('karyawan/nav',$saldo);
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$data['transaksi'] = $this->m_karyawan->get_transaksi()->result();
+		$this->load->view('karyawan/transaksi',$data);
+		$this->load->view('karyawan/footer');
+	}
+ // --------------------------------------------------------------------------------------------
+// pesanan
+// --------------------------------------------------------------------------------------------
+
+	public function pesanan()
+	{
+		
+		// $saldo['saldo'] = $this->session->userdata('saldo');
+		// $this->load->view('karyawan/nav',$saldo);
+		$data['saldo'] = $this->m_karyawan->tampil_saldo();
+		$this->load->view('karyawan/nav',$data);
+		$data['order'] = $this->m_karyawan->get_order()->result();
+		$this->load->view('karyawan/pesanan',$data);
+		$this->load->view('karyawan/footer');
+	}
+
+
+	public function logout() 
+	{
+		$this->session->unset_userdata('nama');
+		$this->session->unset_userdata('status');
+		session_destroy();
+		redirect('auth');
+	}
+	
+
+}
